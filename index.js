@@ -7,34 +7,96 @@ app.use(express.json());
 
 // default route
 app.get('/', async (req, res) => {
-    const tickers = ['AAPL', 'TSLA', 'MSFT', 'AMZN', 'ZM'];
+    const tickers = ['AAPL', 'TSLA'];
     const assets = await getAssets(tickers);
-    const weights = getWeights(tickers.length, 0.5);
+    // const weights = getWeights(tickers.length, 0.5);
 
     const portfolios = [];
-    weights.forEach((weight, index) => portfolios.push(new Portfolio(index, assets, weight)));
+    // weights.forEach((weight, index) => portfolios.push(new Portfolio(index, assets, weight)));
 
     res.json(portfolios);
 });
 
 async function getAssets(tickers){
+    const stockData = await getStockData(tickers); // adj close prices
+
+
+    // // create array of asset objects each containing ticker, exp return and standard deviation.
+    // var assets = [];
+    // for(var key in history){
+
+
+
+
+    //     var asset = {ticker: key};
+
+    //     // expected annual return (average return over the last 10 years).
+    //     const currentPrice = history[key][0].adjClose;
+    //     const startingPrice = history[key][history[key].length - 1].adjClose;
+    //     asset['expectedReturn'] = (currentPrice - startingPrice) / 10;
+
+    //     // mean (average) price
+    //     var mean = 0;
+    //     for(var i = 0; i < history[key].length; i++){
+    //         mean += history[key][i].adjClose;
+    //     }
+    //     mean /= history[key].length;
+
+    //     // variance (difference from mean)
+    //     var variance = 0;
+    //     for(var i = 0; i < history[key].length; i++){
+    //         variance += ((history[key][i].adjClose - mean) ** 2);
+    //     }
+    //     variance /= history[key].length - 1; 
+
+    //     // standard deviation
+    //     asset['standardDeviation'] = Math.sqrt(variance);
+
+    //     assets.push(asset);
+    // }
+    // return assets;
+}
+
+async function getStockData(tickers){
+    // collect historical stock prices from yahooFinance API
     const history = await yahooFinance.historical({
         symbols: tickers,
         from: '2011-01-01',
-        to: '2021-01-01',
-        preriod: 'm'
+        to: '2021-01-01'
     });
 
-    // calculate the expected annual return and add to output object
-    var assets = {};
+    // create a 'cleaned' dataset
+
+    var stockData = {};
     for(var key in history){
-        const currentPrice = history[key][0].adjClose;
-        const startingPrice = history[key][history[key].length - 1].adjClose;
-        assets[key] = (currentPrice - startingPrice) / 10;
+        stockData[key] = { ticker: key };
+
+        // calculate expected return for the asset based upon daily % change
+        var sumPctChange = 0;
+        var pctChanges = [];
+        for(var i = 1; i < history[key].length; i++){
+            const increase = history[key][i].adjClose - history[key][i-1].adjClose;
+            const pctChange = increase / history[key][i-1].adjClose * 100;
+            pctChanges.push(pctChange);
+            sumPctChange = sumPctChange + pctChange;
+        }
+        stockData[key]['expectedReturn'] = sumPctChange / 10; // 10 = num years so annual expRet
+
+        // calculate standard deviation of the assets based upon daily % change
+        const meanPctChange = sumPctChange / pctChanges.length;
+        var variance = 0;
+        for(var i = 0; i < pctChanges.length; i++){
+            variance += ((pctChanges[i] - meanPctChange) ** 2);
+        }
+        variance /= pctChanges.length; 
+        stockData[key]['standardDeviation'] = Math.sqrt(variance);
     }
 
-    return assets;
+    console.log(stockData);
+
+    return stockData;
 }
+
 
 class Portfolio {
     constructor(id, assets, weights){
@@ -46,10 +108,18 @@ class Portfolio {
 
     calcExpectedReturn = (assets) => {
         var expReturn = 0;
+        for(var i = 0; i < assets.length; i++){
+            expReturn += this.weights[i] * assets[i].expectedReturn;
+        }
+        return expReturn;
+    }
+
+    calcStandardDeviation = (assets) => {
+        var sd = 0;
         for(var i = 0; i < Object.keys(assets).length; i++){
             expReturn += this.weights[i] * assets[Object.keys(assets)[i]];
         }
-        return expReturn;
+        return sd;
     }
 }
 
