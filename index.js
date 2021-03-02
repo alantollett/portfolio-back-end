@@ -7,55 +7,16 @@ app.use(express.json());
 
 // default route
 app.get('/', async (req, res) => {
-    const tickers = ['AAPL', 'TSLA'];
-    const assets = await getAssets(tickers);
-    // const weights = getWeights(tickers.length, 0.5);
+    const tickers = ['AAPL', 'TSLA', 'KO'];
+    
+    const assets = await getStockData(tickers); // each key has an exp return and standard deviation.
+    const weights = getWeights(tickers.length, 0.5);
 
     const portfolios = [];
-    // weights.forEach((weight, index) => portfolios.push(new Portfolio(index, assets, weight)));
+    weights.forEach((portfolioWeights) => portfolios.push(new Portfolio(assets, portfolioWeights)));
 
     res.json(portfolios);
 });
-
-async function getAssets(tickers){
-    const stockData = await getStockData(tickers); // adj close prices
-
-
-    // // create array of asset objects each containing ticker, exp return and standard deviation.
-    // var assets = [];
-    // for(var key in history){
-
-
-
-
-    //     var asset = {ticker: key};
-
-    //     // expected annual return (average return over the last 10 years).
-    //     const currentPrice = history[key][0].adjClose;
-    //     const startingPrice = history[key][history[key].length - 1].adjClose;
-    //     asset['expectedReturn'] = (currentPrice - startingPrice) / 10;
-
-    //     // mean (average) price
-    //     var mean = 0;
-    //     for(var i = 0; i < history[key].length; i++){
-    //         mean += history[key][i].adjClose;
-    //     }
-    //     mean /= history[key].length;
-
-    //     // variance (difference from mean)
-    //     var variance = 0;
-    //     for(var i = 0; i < history[key].length; i++){
-    //         variance += ((history[key][i].adjClose - mean) ** 2);
-    //     }
-    //     variance /= history[key].length - 1; 
-
-    //     // standard deviation
-    //     asset['standardDeviation'] = Math.sqrt(variance);
-
-    //     assets.push(asset);
-    // }
-    // return assets;
-}
 
 async function getStockData(tickers){
     // collect historical stock prices from yahooFinance API
@@ -67,9 +28,9 @@ async function getStockData(tickers){
 
     // create a 'cleaned' dataset
 
-    var stockData = {};
+    var stockData = [];
     for(var key in history){
-        stockData[key] = { ticker: key };
+        var currStock = { ticker: key };
 
         // calculate expected return for the asset based upon daily % change
         var sumPctChange = 0;
@@ -80,7 +41,9 @@ async function getStockData(tickers){
             pctChanges.push(pctChange);
             sumPctChange = sumPctChange + pctChange;
         }
-        stockData[key]['expectedReturn'] = sumPctChange / 10; // 10 = num years so annual expRet
+        currStock['pctChanges'] = pctChanges;
+        currStock['meanDailyChange'] = sumPctChange / pctChanges.length;
+        currStock['expectedReturn'] = sumPctChange / 10; // 10 = num years so annual expRet
 
         // calculate standard deviation of the assets based upon daily % change
         const meanPctChange = sumPctChange / pctChanges.length;
@@ -88,22 +51,20 @@ async function getStockData(tickers){
         for(var i = 0; i < pctChanges.length; i++){
             variance += ((pctChanges[i] - meanPctChange) ** 2);
         }
-        variance /= pctChanges.length; 
-        stockData[key]['standardDeviation'] = Math.sqrt(variance);
+        variance /= pctChanges.length - 1; 
+        currStock['standardDeviation'] = Math.sqrt(variance);
+
+        stockData.push(currStock);
     }
-
-    console.log(stockData);
-
     return stockData;
 }
 
 
 class Portfolio {
-    constructor(id, assets, weights){
-        this.id = id;
+    constructor(assets, weights){
         this.weights = weights;
         this.expectedReturn = this.calcExpectedReturn(assets);
-        //this.setStandardDeviation();
+        this.standardDeviation = this.calcStandardDeviation(assets);
     }
 
     calcExpectedReturn = (assets) => {
@@ -116,11 +77,26 @@ class Portfolio {
 
     calcStandardDeviation = (assets) => {
         var sd = 0;
-        for(var i = 0; i < Object.keys(assets).length; i++){
-            expReturn += this.weights[i] * assets[Object.keys(assets)[i]];
+        for(var i = 0; i < assets.length; i++){
+            for(var j = 0; j < assets.length; j++){
+                var correlationCoefficient = covariance(assets[i], assets[j]) / (assets[i].standardDeviation * assets[j].standardDeviation);
+
+                sd += this.weights[i] * assets[i].standardDeviation 
+                    * this.weights[j] * assets[j].standardDeviation 
+                    * correlationCoefficient;
+            }
         }
         return sd;
     }
+}
+
+function covariance(assetI, assetJ){
+    var cov = 0;
+    for(var i = 0; i < assetI.pctChanges.length; i++){
+        cov += (assetI.pctChanges[i] - assetI.meanDailyChange) * (assetJ.pctChanges[i] - assetJ.meanDailyChange);
+    }
+    cov /= assetI.pctChanges.length - 1;
+    return cov;
 }
 
 /**
@@ -170,3 +146,55 @@ function weightsAux(weights, currWeights, stepSize){
 
 // start the server
 app.listen(5000, () => console.log('Listening on port 5000...'));
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// OLD GET ASSETS CODE WORKING WITH DAILY PRICES RATHER THAN % CHANGE...
+
+    // // create array of asset objects each containing ticker, exp return and standard deviation.
+    // var assets = [];
+    // for(var key in history){
+    //     var asset = {ticker: key};
+
+    //     // expected annual return (average return over the last 10 years).
+    //     const currentPrice = history[key][0].adjClose;
+    //     const startingPrice = history[key][history[key].length - 1].adjClose;
+    //     asset['expectedReturn'] = (currentPrice - startingPrice) / 10;
+
+    //     // mean (average) price
+    //     var mean = 0;
+    //     for(var i = 0; i < history[key].length; i++){
+    //         mean += history[key][i].adjClose;
+    //     }
+    //     mean /= history[key].length;
+
+    //     // variance (difference from mean)
+    //     var variance = 0;
+    //     for(var i = 0; i < history[key].length; i++){
+    //         variance += ((history[key][i].adjClose - mean) ** 2);
+    //     }
+    //     variance /= history[key].length - 1; 
+
+    //     // standard deviation
+    //     asset['standardDeviation'] = Math.sqrt(variance);
+
+    //     assets.push(asset);
+    // }
+    // return assets;
