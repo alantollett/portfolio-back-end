@@ -1,8 +1,8 @@
 var Portfolio = class Portfolio {
-    constructor(assets, weights){
+    constructor(stocks, weights){
         this.weights = weights;
-        this.expectedReturn = this.calcExpectedReturn(assets);
-        this.standardDeviation = this.calcStandardDeviation(assets);
+        this.expectedReturn = this.calcExpectedReturn(stocks);
+        this.standardDeviation = this.calcStandardDeviation(stocks);
     }
 
     calcExpectedReturn = (assets) => {

@@ -12,11 +12,11 @@ app.use(express.json());
 // default route
 app.get('/', async (req, res) => {
     const tickers = ['AAPL', 'TSLA', 'KO'];
-    const stocks = await getStockData(tickers); // each key has an exp return and standard deviation.
+    const stockData = await getStockData(tickers);
     const weights = getWeights(tickers.length, 0.5);
 
     const portfolios = [];
-    weights.forEach((weights) => portfolios.push(new Portfolio(stocks, weights)));
+    weights.forEach((weights) => portfolios.push(new Portfolio(stockData, weights)));
     res.json(portfolios);
 });
 
