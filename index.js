@@ -1,3 +1,6 @@
+// import Default, {someOtherNonDefaultExport1, ...} from './File.js'; 
+const Portfolio = require('./Portfolio');
+
 const yahooFinance = require('yahoo-finance');
 
 // setup the express app 
@@ -60,44 +63,9 @@ async function getStockData(tickers){
 }
 
 
-class Portfolio {
-    constructor(assets, weights){
-        this.weights = weights;
-        this.expectedReturn = this.calcExpectedReturn(assets);
-        this.standardDeviation = this.calcStandardDeviation(assets);
-    }
 
-    calcExpectedReturn = (assets) => {
-        var expReturn = 0;
-        for(var i = 0; i < assets.length; i++){
-            expReturn += this.weights[i] * assets[i].expectedReturn;
-        }
-        return expReturn;
-    }
 
-    calcStandardDeviation = (assets) => {
-        var sd = 0;
-        for(var i = 0; i < assets.length; i++){
-            for(var j = 0; j < assets.length; j++){
-                var correlationCoefficient = covariance(assets[i], assets[j]) / (assets[i].standardDeviation * assets[j].standardDeviation);
 
-                sd += this.weights[i] * assets[i].standardDeviation 
-                    * this.weights[j] * assets[j].standardDeviation 
-                    * correlationCoefficient;
-            }
-        }
-        return sd;
-    }
-}
-
-function covariance(assetI, assetJ){
-    var cov = 0;
-    for(var i = 0; i < assetI.pctChanges.length; i++){
-        cov += (assetI.pctChanges[i] - assetI.meanDailyChange) * (assetJ.pctChanges[i] - assetJ.meanDailyChange);
-    }
-    cov /= assetI.pctChanges.length - 1;
-    return cov;
-}
 
 /**
  * Generates an list of different weights that can be used to generate different porfolios.
