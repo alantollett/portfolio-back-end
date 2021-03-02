@@ -9,18 +9,19 @@ const express = require('express');
 const app = express();
 app.use(express.json());
 
+const cors = require('cors');
+app.use(cors());
+
 // default route
 app.get('/', async (req, res) => {
-    const tickers = ['AAPL', 'TSLA', 'KO'];
+    const tickers = ['AAPL', 'TSLA', 'KO', 'NKE', 'MSFT', 'AMZN', 'WFC', 'PEP'];
     const stockData = await getStockData(tickers);
-    const weights = getWeights(tickers.length, 0.5);
+    const weights = getWeights(tickers.length, 0.25);
 
     const portfolios = [];
     weights.forEach((weights) => portfolios.push(new Portfolio(stockData, weights)));
     res.json(portfolios);
 });
-
-
 
 // start the server
 app.listen(5000, () => console.log('Listening on port 5000...'));
