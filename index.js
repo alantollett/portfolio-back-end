@@ -16,7 +16,7 @@ app.use(cors());
 app.get('/', async (req, res) => {
     const tickers = ['AAPL', 'TSLA', 'KO', 'NKE', 'MSFT', 'AMZN', 'WFC', 'PEP'];
     const stockData = await getStockData(tickers);
-    const weights = getWeights(tickers.length, 0.25);
+    const weights = getWeights(tickers.length, 0.2);
 
     const portfolios = [];
     weights.forEach((weights) => portfolios.push(new Portfolio(stockData, weights)));
