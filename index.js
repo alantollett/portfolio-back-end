@@ -32,6 +32,21 @@ con.connect((err) => {
     console.log('Connected to the Database...');
 });
 
+// setup the email account
+const nodemailer = require('nodemailer');
+var transporter = nodemailer.createTransport({
+    host: process.env.EMAIL_HOST,
+    port: 587,
+    secure: false,
+    auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASSWORD
+    }
+});
+
+
+
+
 // default route
 app.get('/', async (req, res) => {
     const tickers = ['AAPL', 'TSLA', 'KO', 'NKE', 'MSFT', 'AMZN', 'WFC', 'PEP'];
@@ -44,6 +59,48 @@ app.get('/', async (req, res) => {
 });
 
 
+
+/**
+ * User System (authentication).
+ */
+// Register for an account
+app.post('/register', async (req, res) => {
+    const user = req.body.user;
+    user.password = await bcrypt.hash(user.password, 10);
+
+    // check if the user already exists
+    con.query('SELECT * FROM user WHERE email=?', [user.email], (err, result) => {
+        if(err) return error(res, err);
+        if(result.length > 0) return res.status(409).send('User already exists.');
+
+        con.query('INSERT INTO user VALUES (?, ?, ?)', [user.email, user.password, 0], (err, result) => {
+            if(err) return error(res, err);
+
+            // Generate verification link and add to database
+            var id = crypto.randomBytes(40).toString('hex');
+            con.query('INSERT INTO verification VALUES (?, ?)', [user.email, id], (err, result) => {
+                if(err) return error(res, err);
+
+                // configure email
+                var mailOptions = {
+                    from: process.env.EMAIL_USER,
+                    to: user.email,
+                    subject: 'Potfolio Optimiser: Please verify your account!',
+                    html: `
+                        <h1>Welcome to Portfolio Optimiser</h1>
+                        <p>Please verify your account by clicking the following link:</p>
+                        localhost:5000/verify/${id}`
+                };
+            
+                // Send verification email to user
+                transporter.sendMail(mailOptions, (err, info) => {
+                    if(err) return error(res, err);
+                    res.status(201).send();
+                });
+            });
+        });
+    });
+});
 
 
 // start the server
