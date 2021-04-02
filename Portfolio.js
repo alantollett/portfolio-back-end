@@ -4,6 +4,7 @@ var Portfolio = class Portfolio {
         this.weights = weights;
         this.expectedReturn = this.calcExpectedReturn(stockData);
         this.standardDeviation = this.calcStandardDeviation(stockData);
+        this.asString = this.toString();
     }
 
     calcExpectedReturn = (assets) => {
@@ -31,7 +32,7 @@ var Portfolio = class Portfolio {
     toString = () => {
         var output = "";
         for(var i = 0; i < this.tickers.length; i++){
-            output += this.tickers[i] + ": " + this.weights[i];
+            output += this.tickers[i] + ": " + (this.weights[i] * 100) + "%<br>";
         }
         return output;
     }
