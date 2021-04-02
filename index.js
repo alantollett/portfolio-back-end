@@ -10,6 +10,7 @@ const crypto = require('crypto');
 const Portfolio = require('./Portfolio'); // Portfolio class
 const getStockData = require('./StockData'); // getStockData function
 const getWeights = require('./Weights'); // getWeights function
+const optimise = require('./Optimiser'); // optimise function
 
 // setup the express app 
 const express = require('express');
@@ -60,7 +61,7 @@ app.get('/', async (req, res) => {
 
     const portfolios = [];
     weights.forEach((weights) => portfolios.push(new Portfolio(stockData, tickers, weights)));
-    res.json(portfolios);
+    res.json(optimise(portfolios));
 });
 
 
