@@ -54,9 +54,9 @@ function error(response, error){
 
 // default route
 app.get('/', async (req, res) => {
-    const tickers = ['AAPL', 'TSLA', 'KO', 'NKE', 'MSFT', 'AMZN', 'WFC', 'PEP'];
+    const tickers = ['AAPL', 'TSLA', 'KO', 'NKE', 'MSFT', 'AMZN'];
     const stockData = await getStockData(tickers);
-    const weights = getWeights(tickers.length, 0.2);
+    const weights = getWeights(tickers.length, 0.25);
 
     const portfolios = [];
     weights.forEach((weights) => portfolios.push(new Portfolio(stockData, tickers, weights)));
