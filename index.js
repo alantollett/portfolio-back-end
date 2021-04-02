@@ -61,7 +61,7 @@ app.get('/', async (req, res) => {
 
     const portfolios = [];
     weights.forEach((weights) => portfolios.push(new Portfolio(stockData, tickers, weights)));
-    res.json(optimise(portfolios));
+    res.json(portfolios);
 });
 
 
