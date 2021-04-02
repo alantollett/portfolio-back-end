@@ -4,7 +4,16 @@ var Portfolio = class Portfolio {
         this.weights = weights;
         this.expectedReturn = this.calcExpectedReturn(stockData);
         this.standardDeviation = this.calcStandardDeviation(stockData);
+        this.expectedDividendYield = this.calcExpectedDividendYield(stockData);
         this.asString = this.toString();
+    }
+
+    calcExpectedDividendYield = (assets) => {
+        var expDivYield = 0;
+        for(var i = 0; i < assets.length; i++){
+            expDivYield += this.weights[i] * assets[i].expectedDividendYield;
+        }
+        return expDivYield;
     }
 
     calcExpectedReturn = (assets) => {
