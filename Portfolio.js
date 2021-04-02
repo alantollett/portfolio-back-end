@@ -1,8 +1,9 @@
 var Portfolio = class Portfolio {
-    constructor(stocks, weights){
+    constructor(stockData, tickers, weights){
+        this.tickers = tickers;
         this.weights = weights;
-        this.expectedReturn = this.calcExpectedReturn(stocks);
-        this.standardDeviation = this.calcStandardDeviation(stocks);
+        this.expectedReturn = this.calcExpectedReturn(stockData);
+        this.standardDeviation = this.calcStandardDeviation(stockData);
     }
 
     calcExpectedReturn = (assets) => {
@@ -25,6 +26,14 @@ var Portfolio = class Portfolio {
             }
         }
         return sd;
+    }
+
+    toString = () => {
+        var output = "";
+        for(var i = 0; i < this.tickers.length; i++){
+            output += this.tickers[i] + ": " + this.weights[i];
+        }
+        return output;
     }
 }
 
