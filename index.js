@@ -4,6 +4,7 @@ require('dotenv').config();
 // dependencies for user authentication
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 
 // import own code from other files/modules...
 const Portfolio = require('./Portfolio'); // Portfolio class
@@ -44,7 +45,11 @@ var transporter = nodemailer.createTransport({
     }
 });
 
-
+// helper function for outputting errors
+function error(response, error){
+    console.log(error);
+    response.status(500).send(`Internal Server Error: ${error}`);
+}
 
 
 // default route
@@ -65,6 +70,7 @@ app.get('/', async (req, res) => {
  */
 // Register for an account
 app.post('/register', async (req, res) => {
+    console.log('hit');
     const user = req.body.user;
     user.password = await bcrypt.hash(user.password, 10);
 
