@@ -70,7 +70,6 @@ app.get('/', async (req, res) => {
  */
 // Register for an account
 app.post('/register', async (req, res) => {
-    console.log('hit');
     const user = req.body.user;
     user.password = await bcrypt.hash(user.password, 10);
 
@@ -108,6 +107,19 @@ app.post('/register', async (req, res) => {
     });
 });
 
+// Verify a users email (user clicks link in the email)
+app.get('/verify/:id', (req, res) => {
+    // check if the verification id exists
+    con.query('SELECT email FROM verification WHERE id=?', [req.params.id], (err, result) => {
+        if(err) return error(res, err);
+        if(result.length === 0) return res.status(404).send('Verification link does not exist.');
+
+        // verify the user
+        con.query('UPDATE user SET verified=1 WHERE email=?', [result[0].email], (err, result) => {
+            res.status(201).send('Verified');
+        });
+    });
+});
 
 // start the server
 app.listen(5000, () => console.log('Listening on port 5000...'));
