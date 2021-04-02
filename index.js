@@ -121,6 +121,31 @@ app.get('/verify/:id', (req, res) => {
     });
 });
 
+// Login to an account (and return a Json Web Token (JWT))
+app.post('/login', async (req, res) => {
+    const user = req.body.user;
+
+    // check if user exists
+    con.query('SELECT * FROM user WHERE email=?', [user.email], async (err, result) => {
+        if(err) return error(res, err);
+        if(result.length === 0) return res.status(404).send(); // not found
+
+        // check if password is correct
+        if(! (await bcrypt.compare(user.password, result[0].password))){
+            return res.status(401).send(); // unauthorised
+        }
+
+        // check if user has verified email
+        if(result[0].verified == 0) return res.status(412).send(); // unverified email
+        
+        // add values from database to user, and remove password so its not sent across the internet
+        user['password'] = null;
+
+        // create a JWT with the user object and send back to user.
+        res.status(200).json({accessToken: jwt.sign(user, process.env.ACCESS_TOKEN_SECRET)});
+    });
+});
+
 // start the server
 app.listen(5000, () => console.log('Listening on port 5000...'));
 
