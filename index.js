@@ -1,16 +1,36 @@
+// add the process environment variables
+require('dotenv').config();
+
+// dependencies for user authentication
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
+
 // import own code from other files/modules...
 const Portfolio = require('./Portfolio'); // Portfolio class
 const getStockData = require('./StockData'); // getStockData function
 const getWeights = require('./Weights'); // getWeights function
-
 
 // setup the express app 
 const express = require('express');
 const app = express();
 app.use(express.json());
 
+// dependency for allowing cross-origin requests 
 const cors = require('cors');
 app.use(cors());
+
+// connect to the mysql database
+const mysql = require('mysql');
+var con = mysql.createConnection({
+    host: process.env.MYSQL_HOST,
+    user: process.env.MYSQL_USER,
+    password: process.env.MYSQL_PASSWORD,
+    database: "portfolio"
+});
+con.connect((err) => {
+    if(err) throw err;
+    console.log('Connected to the Database...');
+});
 
 // default route
 app.get('/', async (req, res) => {
@@ -22,6 +42,9 @@ app.get('/', async (req, res) => {
     weights.forEach((weights) => portfolios.push(new Portfolio(stockData, weights)));
     res.json(portfolios);
 });
+
+
+
 
 // start the server
 app.listen(5000, () => console.log('Listening on port 5000...'));
