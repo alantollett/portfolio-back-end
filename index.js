@@ -1,6 +1,8 @@
 // add the process environment variables
 require('dotenv').config();
 
+const yahooFinance = require('yahoo-finance');
+
 // dependencies for user authentication
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
@@ -10,7 +12,7 @@ const crypto = require('crypto');
 const Portfolio = require('./Portfolio'); // Portfolio class
 const getStockData = require('./StockData'); // getStockData function
 const getWeights = require('./Weights'); // getWeights function
-const optimise = require('./Optimiser'); // optimise function
+// const optimise = require('./Optimiser'); // optimise function
 
 // setup the express app 
 const express = require('express');
@@ -64,6 +66,17 @@ app.get('/', async (req, res) => {
     res.json(portfolios);
 });
 
+app.get('/prices', async (req, res) => {
+    const tickers = ['AAPL', 'TSLA', 'KO', 'NKE', 'MSFT', 'AMZN'];
+    yahooFinance.historical({
+        symbols: tickers,
+        from: '2016-01-01',
+        to: '2021-04-08',
+        period: 'd'
+    }).then(prices => {
+        res.json(prices);
+    });
+});
 
 
 /**
@@ -95,7 +108,7 @@ app.post('/register', async (req, res) => {
                     html: `
                         <h1>Welcome to Portfolio Optimiser</h1>
                         <p>Please verify your account by clicking the following link:</p>
-                        localhost:5000/verify/${id}`
+                        localhost:80/verify/${id}`
                 };
             
                 // Send verification email to user
@@ -142,14 +155,49 @@ app.post('/login', async (req, res) => {
         // add values from database to user, and remove password so its not sent across the internet
         user['password'] = null;
 
-        // create a JWT with the user object and send back to user.
-        res.status(200).json({accessToken: jwt.sign(user, process.env.ACCESS_TOKEN_SECRET)});
+        // add users worth data
+        con.query('SELECT date, amount FROM worth WHERE email=?', [user.email], (err, worths) => {
+            if(err) return error(res, err);
+
+            user['worths'] = worths;
+
+            // create a JWT with the user object and send back to user.
+            res.status(200).json({accessToken: jwt.sign(user, process.env.ACCESS_TOKEN_SECRET)});
+        });
     });
 });
 
 // start the server
 app.listen(process.env.PORT, () => console.log(`Listening on port ${process.env.PORT}...`));
 
+// every minute, update the user-worth table
+setInterval(() => {
+    const tickers = ['AAPL', 'TSLA', 'KO', 'NKE', 'MSFT', 'AMZN'];
+    yahooFinance.quote({
+        symbols: tickers,
+        from: '2016-01-01',
+    }).then(prices => {
+        con.query('SELECT * FROM user', (err, users) => {
+            if(err) console.log(err);
+
+            for(var i = 0; i < users.length; i++){
+                const user = users[i];
+
+                con.query('SELECT * FROM investment WHERE email=?', [user.email], (err, investments) => {
+                    if(err) return error(res, err);
+    
+                    var worth = 0;
+                    for(var investment of investments){
+                        const currentPrice = prices[investment.ticker].price.regularMarketPrice;
+                        worth += investment.numShares * currentPrice;
+                    }
+
+                    con.query('INSERT INTO worth VALUES (?, ?, ?)', [user.email, new Date(), worth.toFixed(2)]);
+                });
+            }
+        });
+    });
+}, 60000);
 
 
 
