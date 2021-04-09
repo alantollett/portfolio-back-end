@@ -1,15 +1,6 @@
 // add the process environment variables
 require('dotenv').config();
 
-const yahooFinance = require('yahoo-finance');
-
-
-// import own code from other files/modules...
-const Portfolio = require('./Portfolio'); // Portfolio class
-const getStockData = require('./StockData'); // getStockData function
-const getWeights = require('./Weights'); // getWeights function
-// const optimise = require('./Optimiser'); // optimise function
-
 // setup the express app 
 const express = require('express');
 const app = express();
@@ -23,38 +14,35 @@ app.use(cors());
 const userRoute = require('./Routes/user');
 app.use('/user', userRoute);
 
-// get connection from mysql database
-const con = require('./database');
+const dataRoute = require('./Routes/Data/data');
+app.use('/data', dataRoute);
+
+// start the server
+app.listen(process.env.PORT, () => console.log(`Listening on port ${process.env.PORT}...`));
 
 
 
-// helper function for outputting errors
-function error(response, error){
-    console.log(error);
-    response.status(500).send(`Internal Server Error: ${error}`);
-}
 
 
-// default route
-app.get('/', async (req, res) => {
-    const tickers = ['AAPL', 'TSLA', 'KO', 'NKE', 'MSFT', 'AMZN'];
-    const stockData = await getStockData(tickers);
-    const weights = getWeights(tickers.length, 0.25);
 
-    const portfolios = [];
-    weights.forEach((weights) => portfolios.push(new Portfolio(stockData, tickers, weights)));
-    res.json(portfolios);
-});
 
-app.get('/prices', async (req, res) => {
-    const tickers = ['AAPL', 'TSLA', 'KO', 'NKE', 'MSFT', 'AMZN'];
-    yahooFinance.quote({
-        symbols: tickers,
-        from: '2016-01-01',
-    }).then(prices => {
-        res.json(prices);
-    });
-});
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 // app.post('/investment', authenticateToken, async (req, res) => {
 //     if(!req.user) return res.status(401).send('Please login.');
@@ -105,9 +93,6 @@ app.get('/prices', async (req, res) => {
 
 
 
-
-// start the server
-app.listen(process.env.PORT, () => console.log(`Listening on port ${process.env.PORT}...`));
 
 // every minute, update the user-worth table
 // setInterval(() => {
