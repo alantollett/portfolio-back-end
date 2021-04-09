@@ -38,6 +38,7 @@ con.connect((err) => {
 
 // setup the email account
 const nodemailer = require('nodemailer');
+const e = require('express');
 var transporter = nodemailer.createTransport({
     host: process.env.EMAIL_HOST,
     port: 587,
@@ -54,34 +55,25 @@ function error(response, error){
     response.status(500).send(`Internal Server Error: ${error}`);
 }
 
-
-// default route
-app.get('/', async (req, res) => {
-    const tickers = ['AAPL', 'TSLA', 'KO', 'NKE', 'MSFT', 'AMZN'];
-    const stockData = await getStockData(tickers);
-    const weights = getWeights(tickers.length, 0.25);
-
-    const portfolios = [];
-    weights.forEach((weights) => portfolios.push(new Portfolio(stockData, tickers, weights)));
-    res.json(portfolios);
-});
-
-app.get('/prices', async (req, res) => {
-    const tickers = ['AAPL', 'TSLA', 'KO', 'NKE', 'MSFT', 'AMZN'];
-    yahooFinance.historical({
-        symbols: tickers,
-        from: '2016-01-01',
-        to: '2021-04-08',
-        period: 'd'
-    }).then(prices => {
-        res.json(prices);
-    });
-});
-
-
 /**
  * User System (authentication).
  */
+// function called upon every request for user data to
+// ensure that the user is authenticated with the server.
+function authenticateToken(req, res, next){
+    // get the token and return if undefined.
+    // const token = req.headers['authorization'] && req.headers['authorization'].split(' ')[1];
+    const token = req.body.token;
+    if(!token) return res.status(401).send('No JWT provided.');
+
+    // check if the token is valid and add the user to the request of the calling function.
+    jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, user) => {
+        if(err) return res.status(401).send('JWT is not valid.');
+        req.user = user;
+        next();
+    });
+}
+
 // Register for an account
 app.post('/register', async (req, res) => {
     const user = req.body.user;
@@ -155,17 +147,99 @@ app.post('/login', async (req, res) => {
         // add values from database to user, and remove password so its not sent across the internet
         user['password'] = null;
 
-        // add users worth data
-        con.query('SELECT date, amount FROM worth WHERE email=?', [user.email], (err, worths) => {
+        // add users investment data
+        con.query('SELECT ticker, numShares FROM investment WHERE email=?', [user.email], (err, investments) => {
             if(err) return error(res, err);
+            user['investments'] = investments;
 
-            user['worths'] = worths;
+            // add users worth data
+            con.query('SELECT date, amount FROM worth WHERE email=?', [user.email], (err, worths) => {
+                if(err) return error(res, err);
+                user['worths'] = worths;
 
-            // create a JWT with the user object and send back to user.
-            res.status(200).json({accessToken: jwt.sign(user, process.env.ACCESS_TOKEN_SECRET)});
+                // create a JWT with the user object and send back to user.
+                res.status(200).json({accessToken: jwt.sign(user, process.env.ACCESS_TOKEN_SECRET)});
+            });
         });
     });
 });
+
+
+
+
+
+
+
+// default route
+app.get('/', async (req, res) => {
+    const tickers = ['AAPL', 'TSLA', 'KO', 'NKE', 'MSFT', 'AMZN'];
+    const stockData = await getStockData(tickers);
+    const weights = getWeights(tickers.length, 0.25);
+
+    const portfolios = [];
+    weights.forEach((weights) => portfolios.push(new Portfolio(stockData, tickers, weights)));
+    res.json(portfolios);
+});
+
+app.get('/prices', async (req, res) => {
+    const tickers = ['AAPL', 'TSLA', 'KO', 'NKE', 'MSFT', 'AMZN'];
+    yahooFinance.quote({
+        symbols: tickers,
+        from: '2016-01-01',
+    }).then(prices => {
+        res.json(prices);
+    });
+});
+
+app.post('/investment', authenticateToken, async (req, res) => {
+    if(!req.user) return res.status(401).send('Please login.');
+
+    const user = req.user;
+    const ticker = req.body.investment.ticker;
+    const numShares = req.body.investment.numShares;
+    const purchase = req.body.investment.purchase;
+
+    con.query('SELECT numShares FROM investment WHERE email=? AND ticker=?', [user.email, ticker], (err, investments) => {
+        if(err) return error(res, err);
+
+        if(investments.length == 0 && purchase){
+            con.query('INSERT INTO investment VALUES (?, ?, ?)', [user.email, ticker, numShares], () => {
+                res.status(201).send();
+            });
+        } else {
+            if(investments.length == 0 && !purchase){
+                return res.status(412).send();
+            }
+
+            var newNumShares = investments[0].numShares;
+            if(purchase) {
+                newNumShares += numShares;
+            }else {
+                newNumShares -= numShares;
+            }
+
+            if(newNumShares < 0){
+                res.status(412).send();
+            }else if(newNumShares == 0){
+                con.query('DELETE FROM investment WHERE email=? AND ticker=?', [user.email, ticker], () => {
+                    res.status(202).send();
+                });
+            } else {
+                con.query('UPDATE investment SET numShares=? WHERE email=? AND ticker=?', [newNumShares, user.email, ticker], () => {
+                    res.status(202).send();
+                });
+            }
+
+        }
+    });
+});
+
+
+
+
+
+
+
 
 // start the server
 app.listen(process.env.PORT, () => console.log(`Listening on port ${process.env.PORT}...`));
@@ -197,7 +271,7 @@ setInterval(() => {
             }
         });
     });
-}, 60000);
+}, 15000);
 
 
 
