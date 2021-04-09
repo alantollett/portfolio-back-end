@@ -4,10 +4,9 @@ const getWeights = require('./weights');
 
 // load all tickers from s&p500 then filter by price-book value on a yFinance quote
 const tickers = ['AAPL', 'TSLA', 'KO', 'NKE', 'MSFT', 'AMZN', 'RIO'];
-var stocks;
-var portfolios;
-
-const weights = getWeights(tickers.length, 0.15);
+const weights = getWeights(tickers.length, 0.2);
+var stocks = [];
+var portfolios = [];
 
 // updates the stock list
 async function updateStocks(){
@@ -19,28 +18,28 @@ async function updateStocks(){
 }
 
 // updates the portfolio list
-function updatePortfolios(){
+async function updatePortfolios(){
     portfolios = [];
     for(weight of weights){
-        portfolios.push(new Portfolio(stocks, weights));
+        portfolios.push(new Portfolio(stocks, weight));
+        await portfolios[portfolios.length - 1].init();
     }
 }
 
 // set stocks and then portfolios upon start-up
-updateStocks().then(() => {
-    updatePortfolios();    
+updateStocks().then(async () => {
+    await updatePortfolios();
     console.log(`Loaded ${stocks.length} Stock(s) and ${portfolios.length} portfolios.`);
 });
 
 // and then update them both every 30 second(s)...
 setInterval(async () => {
     await updateStocks();
-    updatePortfolios();
+    await updatePortfolios();
     console.log(`Loaded ${stocks.length} Stock(s) and ${portfolios.length} portfolios.`);
-}, 30000);
-
+}, 60000);
 
 module.exports = {
-    stocks: stocks,
-    portfolios: portfolios,
-};
+    getStocks: () => {return stocks},
+    getPortfolios: () => {return portfolios},
+}

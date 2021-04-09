@@ -2,52 +2,41 @@ var Portfolio = class Portfolio {
     constructor(stocks, weights){
         this.tickers = stocks.map(stock => stock.ticker);
         this.weights = weights;
-        this.expectedReturn = this.calcExpectedReturn(stocks);
-        this.standardDeviation = this.calcStandardDeviation(stocks);
-        this.expectedDividendYield = this.calcExpectedDividendYield(stocks);
-        this.asString = this.toString();
+        this.stocks = stocks;
     }
 
-    calcExpectedDividendYield = (stocks) => {
-        var expDivYield = 0;
-        for(var i = 0; i < stocks.length; i++){
-            expDivYield += this.weights[i] * stocks[i].expectedDividendYield;
-        }
-        return expDivYield;
-    }
-
-    calcExpectedReturn = (stocks) => {
-        var expReturn = 0;
-        for(var i = 0; i < stocks.length; i++){
-            expReturn += this.weights[i] * stocks[i].expectedReturn;
-        }
-        return expReturn;
-    }
-
-    calcStandardDeviation = (stocks) => {
-        var sd = 0;
-        for(var i = 0; i < stocks.length; i++){
-            for(var j = 0; j < stocks.length; j++){
-                var correlationCoefficient = covariance(stocks[i], stocks[j]) / (stocks[i].standardDeviation * stocks[j].standardDeviation);
-
-                sd += this.weights[i] * stocks[i].standardDeviation 
-                    * this.weights[j] * stocks[j].standardDeviation 
-                    * correlationCoefficient;
-            }
-        }
-        return sd;
-    }
-
-    toString = () => {
-        var output = "";
-        for(var i = 0; i < this.tickers.length; i++){
-            output += this.tickers[i] + ": " + (this.weights[i] * 100) + "%<br>";
-        }
-        return output;
+    init = async () => {
+        await loadValues(this);
     }
 }
 
-function covariance(assetI, assetJ){
+loadValues = async (portfolio) => {
+    const stocks = portfolio.stocks;
+    portfolio.expectedReturn = 0;
+    portfolio.expectedDividendYield = 0;
+    portfolio.standardDeviation = 0;
+
+    for(var i = 0; i < stocks.length; i++){
+        portfolio.expectedReturn += portfolio.weights[i] * stocks[i].expectedReturn;
+        portfolio.expectedDividendYield += portfolio.weights[i] * stocks[i].expectedDividendYield;
+
+        for(var j = 0; j < stocks.length; j++){
+            var cov = await covariance(stocks[i], stocks[j]);
+            var correlationCoefficient = cov / (stocks[i].standardDeviation * stocks[j].standardDeviation);
+
+            portfolio.standardDeviation += portfolio.weights[i] * stocks[i].standardDeviation 
+            * portfolio.weights[j] * stocks[j].standardDeviation 
+            * correlationCoefficient;
+        }
+    }
+
+    portfolio.asString = '';        
+    for(var i = 0; i < portfolio.tickers.length; i++){
+        portfolio.asString += portfolio.tickers[i] + ": " + (portfolio.weights[i] * 100) + "%<br>";
+    }
+}
+
+covariance = async (assetI, assetJ) => {
     var cov = 0;
     for(var i = 0; i < assetI.pctChanges.length; i++){
         cov += (assetI.pctChanges[i] - assetI.avgDailyReturn) * (assetJ.pctChanges[i] - assetJ.avgDailyReturn);

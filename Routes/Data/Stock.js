@@ -19,7 +19,10 @@ var Stock = class Stock {
         // collect current data for stock from yahooFinance API
         const quote = await yahooFinance.quote({symbol: this.ticker});
         this.sharePrice = quote.price.regularMarketPrice;
-        this.expectedDividendYield = quote.summaryDetail.fiveYearAvgDividendYield;
+        this.name = quote.price.longName;
+
+        const divYield = quote.summaryDetail.fiveYearAvgDividendYield;
+        this.expectedDividendYield = divYield ? divYield : 0;
     }
 }
 

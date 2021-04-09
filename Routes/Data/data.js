@@ -7,28 +7,26 @@ const router = express.Router();
 
 // middleware for logging connections to end points in this file
 router.use((req, res, next) => {
-    console.log(`${new Date()} ${req.ip} made a ${req.method} request to ${req.protocol}://${req.get('host') + req.originalUrl}.`);
+    // console.log(`${new Date()} ${req.ip} made a ${req.method} request to ${req.protocol}://${req.get('host') + req.originalUrl}.`);
     next();
 });
 
 /**
  * Generates and returns a list of portfolios, each with a different weighting
  * applied to each of the portfolios listed in the tickers variable of this file.
- * @response {HTTP Code} 404 if the id specified was invalid.
- * @response {HTTP Code} 201 if the email was verified successfully.
+ * @response {JSON} a json object containing a list of portfolio objects.
  */
 router.get('/portfolios', async (req, res) => {
-    console.log(data.stocks);
-    // const weights = getWeights(tickers.length, 0.25);
-    // const stockData = await getStockData(tickers);
-
-    // const portfolios = [];
-    // weights.forEach((weights) => portfolios.push(new Portfolio(stockData, tickers, weights)));
-    // res.json(portfolios);
-    res.status(200).send();
+    res.json(data.getPortfolios());
 });
 
-
+/**
+ * Generates and returns a list of stock objects
+ * @response {JSON} a json object containing a list of stock objects.
+ */
+ router.get('/stocks', async (req, res) => {
+    res.json(data.getStocks());
+});
 
 
 
