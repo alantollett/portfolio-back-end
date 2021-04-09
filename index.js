@@ -3,10 +3,6 @@ require('dotenv').config();
 
 const yahooFinance = require('yahoo-finance');
 
-// dependencies for user authentication
-const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
-const crypto = require('crypto');
 
 // import own code from other files/modules...
 const Portfolio = require('./Portfolio'); // Portfolio class
@@ -23,151 +19,20 @@ app.use(express.json());
 const cors = require('cors');
 app.use(cors());
 
-// connect to the mysql database
-const mysql = require('mysql');
-var con = mysql.createConnection({
-    host: process.env.MYSQL_HOST,
-    user: process.env.MYSQL_USER,
-    password: process.env.MYSQL_PASSWORD,
-    database: "portfolio"
-});
-con.connect((err) => {
-    if(err) throw err;
-    console.log('Connected to the Database...');
-});
+// import routes
+const userRoute = require('./Routes/user');
+app.use('/user', userRoute);
 
-// setup the email account
-const nodemailer = require('nodemailer');
-const e = require('express');
-var transporter = nodemailer.createTransport({
-    host: process.env.EMAIL_HOST,
-    port: 587,
-    secure: false,
-    auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASSWORD
-    }
-});
+// get connection from mysql database
+const con = require('./database');
+
+
 
 // helper function for outputting errors
 function error(response, error){
     console.log(error);
     response.status(500).send(`Internal Server Error: ${error}`);
 }
-
-/**
- * User System (authentication).
- */
-// function called upon every request for user data to
-// ensure that the user is authenticated with the server.
-function authenticateToken(req, res, next){
-    // get the token and return if undefined.
-    // const token = req.headers['authorization'] && req.headers['authorization'].split(' ')[1];
-    const token = req.body.token;
-    if(!token) return res.status(401).send('No JWT provided.');
-
-    // check if the token is valid and add the user to the request of the calling function.
-    jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, user) => {
-        if(err) return res.status(401).send('JWT is not valid.');
-        req.user = user;
-        next();
-    });
-}
-
-// Register for an account
-app.post('/register', async (req, res) => {
-    const user = req.body.user;
-    user.password = await bcrypt.hash(user.password, 10);
-
-    // check if the user already exists
-    con.query('SELECT * FROM user WHERE email=?', [user.email], (err, result) => {
-        if(err) return error(res, err);
-        if(result.length > 0) return res.status(409).send('User already exists.');
-
-        con.query('INSERT INTO user VALUES (?, ?, ?)', [user.email, user.password, 0], (err, result) => {
-            if(err) return error(res, err);
-
-            // Generate verification link and add to database
-            var id = crypto.randomBytes(40).toString('hex');
-            con.query('INSERT INTO verification VALUES (?, ?)', [user.email, id], (err, result) => {
-                if(err) return error(res, err);
-
-                // configure email
-                var mailOptions = {
-                    from: process.env.EMAIL_USER,
-                    to: user.email,
-                    subject: 'Potfolio Optimiser: Please verify your account!',
-                    html: `
-                        <h1>Welcome to Portfolio Optimiser</h1>
-                        <p>Please verify your account by clicking the following link:</p>
-                        localhost:80/verify/${id}`
-                };
-            
-                // Send verification email to user
-                transporter.sendMail(mailOptions, (err, info) => {
-                    if(err) return error(res, err);
-                    res.status(201).send();
-                });
-            });
-        });
-    });
-});
-
-// Verify a users email (user clicks link in the email)
-app.get('/verify/:id', (req, res) => {
-    // check if the verification id exists
-    con.query('SELECT email FROM verification WHERE id=?', [req.params.id], (err, result) => {
-        if(err) return error(res, err);
-        if(result.length === 0) return res.status(404).send('Verification link does not exist.');
-
-        // verify the user
-        con.query('UPDATE user SET verified=1 WHERE email=?', [result[0].email], (err, result) => {
-            res.status(201).send('Verified');
-        });
-    });
-});
-
-// Login to an account (and return a Json Web Token (JWT))
-app.post('/login', async (req, res) => {
-    const user = req.body.user;
-
-    // check if user exists
-    con.query('SELECT * FROM user WHERE email=?', [user.email], async (err, result) => {
-        if(err) return error(res, err);
-        if(result.length === 0) return res.status(404).send(); // not found
-
-        // check if password is correct
-        if(! (await bcrypt.compare(user.password, result[0].password))){
-            return res.status(401).send(); // unauthorised
-        }
-
-        // check if user has verified email
-        if(result[0].verified == 0) return res.status(412).send(); // unverified email
-        
-        // add values from database to user, and remove password so its not sent across the internet
-        user['password'] = null;
-
-        // add users investment data
-        con.query('SELECT ticker, numShares FROM investment WHERE email=?', [user.email], (err, investments) => {
-            if(err) return error(res, err);
-            user['investments'] = investments;
-
-            // add users worth data
-            con.query('SELECT date, amount FROM worth WHERE email=?', [user.email], (err, worths) => {
-                if(err) return error(res, err);
-                user['worths'] = worths;
-
-                // create a JWT with the user object and send back to user.
-                res.status(200).json({accessToken: jwt.sign(user, process.env.ACCESS_TOKEN_SECRET)});
-            });
-        });
-    });
-});
-
-
-
-
-
 
 
 // default route
@@ -191,48 +56,48 @@ app.get('/prices', async (req, res) => {
     });
 });
 
-app.post('/investment', authenticateToken, async (req, res) => {
-    if(!req.user) return res.status(401).send('Please login.');
+// app.post('/investment', authenticateToken, async (req, res) => {
+//     if(!req.user) return res.status(401).send('Please login.');
 
-    const user = req.user;
-    const ticker = req.body.investment.ticker;
-    const numShares = req.body.investment.numShares;
-    const purchase = req.body.investment.purchase;
+//     const user = req.user;
+//     const ticker = req.body.investment.ticker;
+//     const numShares = req.body.investment.numShares;
+//     const purchase = req.body.investment.purchase;
 
-    con.query('SELECT numShares FROM investment WHERE email=? AND ticker=?', [user.email, ticker], (err, investments) => {
-        if(err) return error(res, err);
+//     con.query('SELECT numShares FROM investment WHERE email=? AND ticker=?', [user.email, ticker], (err, investments) => {
+//         if(err) return error(res, err);
 
-        if(investments.length == 0 && purchase){
-            con.query('INSERT INTO investment VALUES (?, ?, ?)', [user.email, ticker, numShares], () => {
-                res.status(201).send();
-            });
-        } else {
-            if(investments.length == 0 && !purchase){
-                return res.status(412).send();
-            }
+//         if(investments.length == 0 && purchase){
+//             con.query('INSERT INTO investment VALUES (?, ?, ?)', [user.email, ticker, numShares], () => {
+//                 res.status(201).send();
+//             });
+//         } else {
+//             if(investments.length == 0 && !purchase){
+//                 return res.status(412).send();
+//             }
 
-            var newNumShares = investments[0].numShares;
-            if(purchase) {
-                newNumShares += numShares;
-            }else {
-                newNumShares -= numShares;
-            }
+//             var newNumShares = investments[0].numShares;
+//             if(purchase) {
+//                 newNumShares += numShares;
+//             }else {
+//                 newNumShares -= numShares;
+//             }
 
-            if(newNumShares < 0){
-                res.status(412).send();
-            }else if(newNumShares == 0){
-                con.query('DELETE FROM investment WHERE email=? AND ticker=?', [user.email, ticker], () => {
-                    res.status(202).send();
-                });
-            } else {
-                con.query('UPDATE investment SET numShares=? WHERE email=? AND ticker=?', [newNumShares, user.email, ticker], () => {
-                    res.status(202).send();
-                });
-            }
+//             if(newNumShares < 0){
+//                 res.status(412).send();
+//             }else if(newNumShares == 0){
+//                 con.query('DELETE FROM investment WHERE email=? AND ticker=?', [user.email, ticker], () => {
+//                     res.status(202).send();
+//                 });
+//             } else {
+//                 con.query('UPDATE investment SET numShares=? WHERE email=? AND ticker=?', [newNumShares, user.email, ticker], () => {
+//                     res.status(202).send();
+//                 });
+//             }
 
-        }
-    });
-});
+//         }
+//     });
+// });
 
 
 
@@ -245,81 +110,30 @@ app.post('/investment', authenticateToken, async (req, res) => {
 app.listen(process.env.PORT, () => console.log(`Listening on port ${process.env.PORT}...`));
 
 // every minute, update the user-worth table
-setInterval(() => {
-    const tickers = ['AAPL', 'TSLA', 'KO', 'NKE', 'MSFT', 'AMZN'];
-    yahooFinance.quote({
-        symbols: tickers,
-        from: '2016-01-01',
-    }).then(prices => {
-        con.query('SELECT * FROM user', (err, users) => {
-            if(err) console.log(err);
+// setInterval(() => {
+//     const tickers = ['AAPL', 'TSLA', 'KO', 'NKE', 'MSFT', 'AMZN'];
+//     yahooFinance.quote({
+//         symbols: tickers,
+//         from: '2016-01-01',
+//     }).then(prices => {
+//         con.query('SELECT * FROM user', (err, users) => {
+//             if(err) console.log(err);
 
-            for(var i = 0; i < users.length; i++){
-                const user = users[i];
+//             for(var i = 0; i < users.length; i++){
+//                 const user = users[i];
 
-                con.query('SELECT * FROM investment WHERE email=?', [user.email], (err, investments) => {
-                    if(err) return error(res, err);
+//                 con.query('SELECT * FROM investment WHERE email=?', [user.email], (err, investments) => {
+//                     if(err) return error(res, err);
     
-                    var worth = 0;
-                    for(var investment of investments){
-                        const currentPrice = prices[investment.ticker].price.regularMarketPrice;
-                        worth += investment.numShares * currentPrice;
-                    }
+//                     var worth = 0;
+//                     for(var investment of investments){
+//                         const currentPrice = prices[investment.ticker].price.regularMarketPrice;
+//                         worth += investment.numShares * currentPrice;
+//                     }
 
-                    con.query('INSERT INTO worth VALUES (?, ?, ?)', [user.email, new Date(), worth.toFixed(2)]);
-                });
-            }
-        });
-    });
-}, 15000);
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// OLD GET ASSETS CODE WORKING WITH DAILY PRICES RATHER THAN % CHANGE...
-
-    // // create array of asset objects each containing ticker, exp return and standard deviation.
-    // var assets = [];
-    // for(var key in history){
-    //     var asset = {ticker: key};
-
-    //     // expected annual return (average return over the last 10 years).
-    //     const currentPrice = history[key][0].adjClose;
-    //     const startingPrice = history[key][history[key].length - 1].adjClose;
-    //     asset['expectedReturn'] = (currentPrice - startingPrice) / 10;
-
-    //     // mean (average) price
-    //     var mean = 0;
-    //     for(var i = 0; i < history[key].length; i++){
-    //         mean += history[key][i].adjClose;
-    //     }
-    //     mean /= history[key].length;
-
-    //     // variance (difference from mean)
-    //     var variance = 0;
-    //     for(var i = 0; i < history[key].length; i++){
-    //         variance += ((history[key][i].adjClose - mean) ** 2);
-    //     }
-    //     variance /= history[key].length - 1; 
-
-    //     // standard deviation
-    //     asset['standardDeviation'] = Math.sqrt(variance);
-
-    //     assets.push(asset);
-    // }
-    // return assets;
+//                     con.query('INSERT INTO worth VALUES (?, ?, ?)', [user.email, new Date(), worth.toFixed(2)]);
+//                 });
+//             }
+//         });
+//     });
+// }, 15000);
