@@ -18,7 +18,7 @@ var Stock = class Stock {
 
         // collect current data for stock from yahooFinance API
         const quote = await yahooFinance.quote({symbol: this.ticker});
-        this.sharePrice = quote.price.regularMarketPrice;
+        this.sharePrice = Number(quote.price.regularMarketPrice).toFixed(2);
         this.name = quote.price.longName;
         this.priceToBook = quote.defaultKeyStatistics ? quote.defaultKeyStatistics.priceToBook : 999;
 
