@@ -9,7 +9,7 @@ function getWeights(n, stepSize){
 
     // start with 100% of the first asset
     var currWeights = new Array(n).fill(0);
-    currWeights[0] = 1;
+    currWeights[0] = 100;
     weights.push(currWeights);
 
     // call recursive helper function with a copy of the starting weights

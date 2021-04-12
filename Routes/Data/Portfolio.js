@@ -1,7 +1,7 @@
 var Portfolio = class Portfolio {
     constructor(stocks, weights){
         this.tickers = stocks.map(stock => stock.ticker);
-        this.weights = weights;
+        this.weights = weights.map(weight => weight / 100);
         this.stocks = stocks;
     }
 
@@ -29,6 +29,10 @@ loadValues = async (portfolio) => {
             * correlationCoefficient;
         }
     }
+
+    portfolio.expectedReturn = Number(portfolio.expectedReturn).toFixed(2);
+    portfolio.standardDeviation = Number(portfolio.standardDeviation).toFixed(2);
+    portfolio.expectedDividendYield = Number(portfolio.expectedDividendYield).toFixed(2);
 
     portfolio.asString = '';        
     for(var i = 0; i < portfolio.tickers.length; i++){

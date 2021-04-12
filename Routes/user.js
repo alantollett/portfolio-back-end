@@ -134,11 +134,13 @@ router.post('/login', async (req, res) => {
 
         // user is valid, so add data to the user object
         user['password'] = null;
-        user['investments'] = await con.query('SELECT ticker, numShares FROM investment WHERE email=?', [user.email]);
         user['worths'] = await con.query('SELECT date, amount FROM worth WHERE email=?', [user.email]);
 
         // create a JWT from the user object and send back to user.
-        res.status(200).json({accessToken: jwt.sign(user, process.env.ACCESS_TOKEN_SECRET)});
+        res.status(200).json({
+            fullAccessToken: jwt.sign(user, process.env.ACCESS_TOKEN_SECRET),
+            shortAccessToken: jwt.sign(user.email, process.env.ACCESS_TOKEN_SECRET)
+        });
     } catch(err) {
         console.log(err);
     } finally {
@@ -148,18 +150,20 @@ router.post('/login', async (req, res) => {
 
 // // function called upon every request for user data to
 // // ensure that the user is authenticated with the server.
-// function authenticateToken(req, res, next){
-//     // get the token and return if undefined.
-//     const token = req.headers['authorization'] && req.headers['authorization'].split(' ')[1];
-//     // const token = req.body.token;
-//     if(!token) return res.status(401).send('No JWT provided.');
+function authenticateToken(req, res, next){
+    // get the token and return if undefined.
+    const token = req.headers['authorization'] && req.headers['authorization'].split(' ')[1];
+    if(!token) return res.status(401).send('No JWT provided.');
 
-//     // check if the token is valid and add the user to the request of the calling function.
-//     jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, user) => {
-//         if(err) return res.status(401).send('JWT is not valid.');
-//         req.user = user;
-//         next();
-//     });
-// }
+    // check if the token is valid and add the user to the request of the calling function.
+    jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, user) => {
+        if(err) return res.status(401).send('JWT is not valid.');
+        req.user = user;
+        next();
+    });
+}
 
-module.exports = router
+module.exports = {
+    router: router,
+    authenticateToken: authenticateToken
+};

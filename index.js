@@ -11,8 +11,8 @@ const cors = require('cors');
 app.use(cors());
 
 // import routes
-const userRoute = require('./Routes/user');
-app.use('/user', userRoute);
+const userManager = require('./Routes/user');
+app.use('/user', userManager.router);
 
 const dataRoute = require('./Routes/Data/data');
 app.use('/data', dataRoute);

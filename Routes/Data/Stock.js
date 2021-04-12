@@ -10,7 +10,7 @@ var Stock = class Stock {
         // collect historical data for stock from yahooFinance API
         const history = await yahooFinance.historical({
             symbol: this.ticker,
-            from: '2011-01-01'
+            from: '2020-01-01'
         });
         
         // then calculate expected return and standard deviation
@@ -44,7 +44,7 @@ loadRiskAndReturn = async (stock, history) => {
 
     // calculate annual expected pct change (return)
     const avgNumTradingDays = 253;
-    stock.expectedReturn = stock.avgDailyReturn * avgNumTradingDays;
+    stock.expectedReturn = Number(stock.avgDailyReturn * avgNumTradingDays).toFixed(2);
 
     // calculate standard deviation (risk)
     const meanPctChange = sumPctChange / pctChanges.length;
@@ -53,7 +53,7 @@ loadRiskAndReturn = async (stock, history) => {
         variance += ((pctChanges[i] - meanPctChange) ** 2);
     }
     variance /= pctChanges.length - 1; 
-    stock.standardDeviation = Math.sqrt(variance);
+    stock.standardDeviation = Number(Math.sqrt(variance)).toFixed(2);
 }
 
 module.exports = Stock;
