@@ -21,6 +21,7 @@ var transporter = nodemailer.createTransport({
 
 // importing the database connection func from database.js
 const getDatabaseConnection = require('../database');
+const e = require('express');
 
 // middleware for logging connections to end points in this file
 router.use((req, res, next) => {
@@ -113,11 +114,9 @@ router.get('/verify/:id', async (req, res) => {
  * @response {HTTP Code} 412 if the email hasn't been verified yet.
  * @response {JSON} a json object containing a JWT based upon the user.
  */
-router.post('/login', async (req, res) => {
-    // connect to the database
-    const con = getDatabaseConnection();
-    
+router.post('/login', async (req, res) => {   
     try{  
+        const con = getDatabaseConnection();
         const user = req.body.user;
 
         // return if no user with the same email exists
@@ -148,8 +147,87 @@ router.post('/login', async (req, res) => {
     }
 });
 
-// // function called upon every request for user data to
-// // ensure that the user is authenticated with the server.
+/**
+ * Generates and returns a list of stock objects representing the investments held by the user
+ * @response {JSON} a json object containing a list of stock objects.
+ */
+ router.get('/investments', authenticateToken, async (req, res) => {
+    try {
+        // connect to the database
+        const con = getDatabaseConnection();
+
+        // get the tickers for investments held by the user
+        var investments = await con.query('SELECT ticker, numShares FROM investment WHERE email=?', [req.user]);
+        const tickers = investments.map(row => row.ticker);
+        const shares = investments.map(row => row.numShares);
+
+        // get a list of Stock objects from the tickers
+        var stocks = await data.getStocks(tickers);
+        stocks.forEach((stock, index) => {
+            delete stock["pctChanges"];
+            delete stock["avgDailyReturn"];
+            stock["numShares"] = shares[index];
+        });
+
+        // send back as a json object to the user
+        res.json(stocks);
+    } catch(err) {
+        console.log(err);
+    } finally {
+        await con.close();
+    }
+});
+
+/**
+ * Takes a JSON object representing an investment (ticker, numShares) and updates the db accordingly.
+ * @response {HTTP Code} 406 if the user tries to sell a share they do not own.
+ * @response {HTTP Code} 202 if the investment was purchased/sold successfully.
+ */
+router.post('/investments', authenticateToken, async (req, res) => {
+    const email = req.user;
+    const investment = req.body.investment;
+    const ticker = investment.ticker;
+    const numShares = parseInt(investment.numShares);
+
+    try{
+        // connect to the database
+        const con = getDatabaseConnection();
+
+        // get the investments already held by the user
+        var investments = await con.query('SELECT ticker, numShares FROM investment WHERE email=? AND ticker=?', [email, ticker]);
+
+        // check if the user already has an investment in this ticker
+        if(investments.length === 0){
+            // no existing investment
+            if(numShares <= 0) {
+                return res.status(406).send('You cannot sell shares in companies which you do not own.');
+            } else {
+                await con.query('INSERT INTO investment VALUES (?, ?, ?)', [email, ticker, numShares]);
+                res.status(202).send();
+            }
+        }else{
+            // already invested, so increment
+            const newNumShares = investments[0].numShares + numShares;
+
+            // num shares could be negative in case of sell, so check if 0 and delete
+            if(newNumShares <= 0){
+                await con.query('DELETE FROM investment WHERE email=? AND ticker=?', [email, ticker]);
+                res.status(202).send();
+            }else {
+                await con.query('UPDATE investment SET numShares=? WHERE email=? AND ticker=?', [newNumShares, email, ticker]);
+                res.status(202).send();
+            }
+        }
+    } catch(err) {
+        console.log(err);
+    } finally {
+        await con.close();
+    }
+});
+
+
+// function called upon every request for user data to
+// ensure that the user is authenticated with the server.
 function authenticateToken(req, res, next){
     // get the token and return if undefined.
     const token = req.headers['authorization'] && req.headers['authorization'].split(' ')[1];

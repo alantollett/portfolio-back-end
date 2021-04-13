@@ -11,10 +11,10 @@ const cors = require('cors');
 app.use(cors());
 
 // import routes
-const userManager = require('./Routes/user');
+const userManager = require('./Routes/userRoute');
 app.use('/user', userManager.router);
 
-const dataRoute = require('./Routes/Data/data');
+const dataRoute = require('./Routes/dataRoute');
 app.use('/data', dataRoute);
 
 // start the server

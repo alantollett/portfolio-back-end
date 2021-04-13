@@ -1,3 +1,6 @@
+const fs = require('fs');
+const path = require('path');
+
 /**
  * Generates an list of different weights that can be used to generate different porfolios.
  * @param {number} n the number of assets.
@@ -43,4 +46,42 @@ function weightsAux(weights, currWeights, stepSize){
     }
 }
 
-module.exports = getWeights;
+/**
+ * Loads weights from a file if generated before, otherwise generates weights
+ * and stores them to a file for use the next time the program runs.
+ * @param {number} n the max number of assets in a portfolio.
+ * @param {number} stepSize how big the jump between different weights should be, 
+ * e.g. for 2 assets and a step size of 5 you would get [[100, 0], [95, 5], [90, 10], ...].
+ * @return {Array} a list of weights based upon the n and the stepSize.
+ */
+function loadWeights(maxStocksInPortfolio, stepSize){
+    var weights = [];
+
+    // load weights from the weights.json file if it already exists
+    var filePath = path.resolve(__dirname, './weights.json');
+    if(fs.existsSync(filePath)){
+        console.log(`Loaded weights from ${filePath}...`);
+        const file = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+        weights = file;
+        return;
+    }
+
+    // othewrwise just load weights...
+    console.log('Loading weights...');
+    for(var i = 1; i < maxStocksInPortfolio + 1; i++){
+        weights.push(getWeights(i, stepSize));
+        console.log('Loaded weights for i = ' + i + '.');
+    }
+
+    // store to file so that this only needs to be done once
+    fs.writeFileSync(filePath, JSON.stringify(weights));
+    console.log(`Loaded all weights successfully and stored in ${filePath}.`);
+
+    return weights;
+}
+
+var maxStocksInPortfolio = 10;
+const stepSize = 25;
+var weights = loadWeights(maxStocksInPortfolio, stepSize);
+
+module.exports = weights;
