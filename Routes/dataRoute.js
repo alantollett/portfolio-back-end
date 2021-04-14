@@ -1,4 +1,6 @@
 const userManager = require('./userRoute');
+const fs = require('fs');
+const path = require('path');
 
 // importing the database connection func from database.js
 const getDatabaseConnection = require('../database');
@@ -24,10 +26,21 @@ router.use((req, res, next) => {
 router.get('/portfolios', userManager.authenticateToken, async (req, res) => {
     var tickers = req.query.tickers.split('-');
     var portfolios = await dataCollector.getPortfolios(tickers);
-    portfolios.forEach(portfolio => {
-        delete portfolio["stocks"];
-    });
+    portfolios.forEach(portfolio => delete portfolio["stocks"]);
     res.json(portfolios);
+});
+
+router.get('/companies', async (req, res) => {
+    // load tickers from the sp500.json file
+    var companies = [];
+    var filePath = path.resolve(__dirname, '../Data/sp500.json');
+    console.log(filePath);
+
+    if(fs.existsSync(filePath)){
+        companies = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    }
+
+    res.json(companies);    
 });
 
 module.exports = router

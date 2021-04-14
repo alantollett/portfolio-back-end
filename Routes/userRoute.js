@@ -7,6 +7,9 @@ const jwt = require('jsonwebtoken');
 const express = require('express');
 const router = express.Router();
 
+// dependency for getting 'live' stock/portfolio data
+const dataCollector = require('../Data/dataCollector');
+
 // dependencies for setting up the email account
 const nodemailer = require('nodemailer');
 var transporter = nodemailer.createTransport({
@@ -22,6 +25,7 @@ var transporter = nodemailer.createTransport({
 // importing the database connection func from database.js
 const getDatabaseConnection = require('../database');
 const e = require('express');
+const Stock = require('../Classes/Stock');
 
 // middleware for logging connections to end points in this file
 router.use((req, res, next) => {
@@ -114,9 +118,11 @@ router.get('/verify/:id', async (req, res) => {
  * @response {HTTP Code} 412 if the email hasn't been verified yet.
  * @response {JSON} a json object containing a JWT based upon the user.
  */
-router.post('/login', async (req, res) => {   
+router.post('/login', async (req, res) => {  
+    // connect to database 
+    const con = getDatabaseConnection();
+
     try{  
-        const con = getDatabaseConnection();
         const user = req.body.user;
 
         // return if no user with the same email exists
@@ -133,7 +139,6 @@ router.post('/login', async (req, res) => {
 
         // user is valid, so add data to the user object
         user['password'] = null;
-        user['worths'] = await con.query('SELECT date, amount FROM worth WHERE email=?', [user.email]);
 
         // create a JWT from the user object and send back to user.
         res.status(200).json({
@@ -152,17 +157,17 @@ router.post('/login', async (req, res) => {
  * @response {JSON} a json object containing a list of stock objects.
  */
  router.get('/investments', authenticateToken, async (req, res) => {
-    try {
-        // connect to the database
-        const con = getDatabaseConnection();
+    // connect to the database
+    const con = getDatabaseConnection();
 
+    try {
         // get the tickers for investments held by the user
         var investments = await con.query('SELECT ticker, numShares FROM investment WHERE email=?', [req.user]);
         const tickers = investments.map(row => row.ticker);
         const shares = investments.map(row => row.numShares);
 
         // get a list of Stock objects from the tickers
-        var stocks = await data.getStocks(tickers);
+        var stocks = await dataCollector.getStocks(tickers);
         stocks.forEach((stock, index) => {
             delete stock["pctChanges"];
             delete stock["avgDailyReturn"];
@@ -189,10 +194,10 @@ router.post('/investments', authenticateToken, async (req, res) => {
     const ticker = investment.ticker;
     const numShares = parseInt(investment.numShares);
 
-    try{
-        // connect to the database
-        const con = getDatabaseConnection();
+    // connect to the database
+    const con = getDatabaseConnection();
 
+    try{
         // get the investments already held by the user
         var investments = await con.query('SELECT ticker, numShares FROM investment WHERE email=? AND ticker=?', [email, ticker]);
 
@@ -225,6 +230,25 @@ router.post('/investments', authenticateToken, async (req, res) => {
     }
 });
 
+/**
+ * Generates and returns a list of worth objects representing the total 
+ * value of investments held by the user over time
+ * @response {JSON} a json object containing a list of worths.
+ */
+ router.get('/worths', authenticateToken, async (req, res) => {
+    // connect to the database
+    const con = getDatabaseConnection();
+
+    try {
+        const worths = await con.query('SELECT date, amount FROM worth WHERE email=?', [req.user]);
+        res.json(worths);
+    } catch(err) {
+        console.log(err);
+    } finally {
+        await con.close();
+    }
+});
+
 
 // function called upon every request for user data to
 // ensure that the user is authenticated with the server.
@@ -240,6 +264,33 @@ function authenticateToken(req, res, next){
         next();
     });
 }
+
+
+// every minute, update the user-worth table
+setInterval(async () => {
+    console.log('Updating worths...');
+    // connect to the database
+    const con = getDatabaseConnection();
+
+    try {
+        const emails = await con.query('SELECT email FROM user WHERE verified=1');
+        for(var email of emails){
+            const investments = await con.query('SELECT ticker, numShares FROM investment WHERE email=?', [email.email]);
+            var worth = 0;
+            for(var investment of investments){
+                var stock = new Stock(investment.ticker);
+                await stock.init();
+                worth += stock.sharePrice * investment.numShares;
+            }
+            await con.query('INSERT INTO worth VALUES (?, ?, ?)', [email.email, new Date(), worth.toFixed(2)]);
+        }
+    } catch(err) {
+        console.log(err);
+    } finally {
+        await con.close();
+    }
+}, 15000);
+
 
 module.exports = {
     router: router,

@@ -63,7 +63,7 @@ function loadWeights(maxStocksInPortfolio, stepSize){
         console.log(`Loaded weights from ${filePath}...`);
         const file = JSON.parse(fs.readFileSync(filePath, 'utf8'));
         weights = file;
-        return;
+        return weights;
     }
 
     // othewrwise just load weights...
@@ -80,8 +80,8 @@ function loadWeights(maxStocksInPortfolio, stepSize){
     return weights;
 }
 
-var maxStocksInPortfolio = 10;
-const stepSize = 25;
-var weights = loadWeights(maxStocksInPortfolio, stepSize);
+var maxStocksInPortfolio = 5;
+const stepSize = 10;
+var allWeights = loadWeights(maxStocksInPortfolio, stepSize);
 
-module.exports = weights;
+module.exports = allWeights;
