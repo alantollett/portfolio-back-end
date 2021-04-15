@@ -2,16 +2,17 @@
 const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-
-// dependencies for setting up express route
+const nodemailer = require('nodemailer');
 const express = require('express');
+
+const dataCollector = require('../Data/dataCollector');
+const getDatabaseConnection = require('../database');
+const Stock = require('../Classes/Stock');
+
+// create a route for this file
 const router = express.Router();
 
-// dependency for getting 'live' stock/portfolio data
-const dataCollector = require('../Data/dataCollector');
-
-// dependencies for setting up the email account
-const nodemailer = require('nodemailer');
+// connect to the email server
 var transporter = nodemailer.createTransport({
     host: process.env.EMAIL_HOST,
     port: 587,
@@ -22,26 +23,56 @@ var transporter = nodemailer.createTransport({
     }
 });
 
-// importing the database connection func from database.js
-const getDatabaseConnection = require('../database');
-const e = require('express');
-const Stock = require('../Classes/Stock');
+// every minute, update the user-worth table
+setInterval(async () => {
+    const con = getDatabaseConnection();
 
-// middleware for logging connections to end points in this file
-router.use((req, res, next) => {
-    console.log(`${new Date()} ${req.ip} made a ${req.method} request to ${req.protocol}://${req.get('host') + req.originalUrl}.`);
-    next();
-});
+    try {
+        const emails = await con.query('SELECT email FROM user WHERE verified=1');
+        for(var email of emails){
+            const investments = await con.query('SELECT ticker, numShares FROM investment WHERE email=?', [email.email]);
+            var worth = 0;
+            for(var investment of investments){
+                var stock = new Stock(investment.ticker);
+                await stock.init();
+                worth += stock.sharePrice * investment.numShares;
+            }
+            await con.query('INSERT INTO worth VALUES (?, ?, ?)', [email.email, new Date(), worth.toFixed(2)]);
+        }
+        console.log('Sucessfully updated user worths table.');
+    } catch(err) {
+        console.log(err);
+    } finally {
+        await con.close();
+    }
+}, 60000);
 
 
 /**
- * Adds a new user to the back-end database with a specified email, and 
- * sends an email to the user with a verification link.
+ * A middleware function to be called upon any request for sensitive data,
+ * i.e. data that should require a user to be authenticated (e.g. investments, portfolios...).
+ * @returns calls the next function in the request loop if the user is authenticated, otherwise error.
+ */
+function authenticateToken(req, res, next){
+    // get the token and return if undefined.
+    const token = req.headers['authorization'] && req.headers['authorization'].split(' ')[1];
+    if(!token) return res.status(401).send('No JWT provided.');
+
+    // check if the token is valid and add the user to the request of the calling function.
+    jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, user) => {
+        if(err) return res.status(401).send('JWT is not valid.');
+        req.user = user;
+        next();
+    });
+}
+
+
+/**
+ * Register a new user with a specified email and password.
  * @response {HTTP Code} 409 if a user already exists with the email address.
  * @response {HTTP Code} 201 if the user was added to the database successfully.
  */
-router.post('/register', async (req, res) => {
-    // connect to the database
+router.post('/register', async (req, res, next) => {
     const con = getDatabaseConnection();
     
     try{ 
@@ -75,20 +106,19 @@ router.post('/register', async (req, res) => {
         // user was added wit no errors, so respond with http code 201
         res.status(201).send();
     } catch(err) {
-        console.log(err);
+        next(err);
     } finally {
         await con.close();
     }
 })
 
 /**
- * Verifies a new user's email.
+ * Verifies a user's email.
  * @param {number} id the unique id assigned to the email. 
  * @response {HTTP Code} 404 if the id specified was invalid.
  * @response {HTTP Code} 201 if the email was verified successfully.
  */
-router.get('/verify/:id', async (req, res) => {
-    // connect to the database
+router.get('/verify/:id', async (req, res, next) => {
     const con = getDatabaseConnection();
     
     try{    
@@ -103,7 +133,7 @@ router.get('/verify/:id', async (req, res) => {
             res.status(404).send('Verification link does not exist.');
         }
     } catch(err) {
-        console.log(err);
+        next(err);
     } finally {
         await con.close();
     }
@@ -111,15 +141,13 @@ router.get('/verify/:id', async (req, res) => {
 
 
 /**
- * Creates and returns a JSON Web Token based upon a user object created from
- * information stored in the back-end database if the specified email&pass match.
+ * Login a user and return a jwt with user data.
  * @response {HTTP Code} 404 if no user exists with the email address.
  * @response {HTTP Code} 401 if the password provided was incorrect.
  * @response {HTTP Code} 412 if the email hasn't been verified yet.
  * @response {JSON} a json object containing a JWT based upon the user.
  */
-router.post('/login', async (req, res) => {  
-    // connect to database 
+router.post('/login', async (req, res, next) => {
     const con = getDatabaseConnection();
 
     try{  
@@ -146,18 +174,17 @@ router.post('/login', async (req, res) => {
             shortAccessToken: jwt.sign(user.email, process.env.ACCESS_TOKEN_SECRET)
         });
     } catch(err) {
-        console.log(err);
+        next(err);
     } finally {
         await con.close();
     }
 });
 
 /**
- * Generates and returns a list of stock objects representing the investments held by the user
+ * Gets a list of investments held by the user
  * @response {JSON} a json object containing a list of stock objects.
  */
- router.get('/investments', authenticateToken, async (req, res) => {
-    // connect to the database
+ router.get('/investments', authenticateToken, async (req, res, next) => {
     const con = getDatabaseConnection();
 
     try {
@@ -177,7 +204,7 @@ router.post('/login', async (req, res) => {
         // send back as a json object to the user
         res.json(stocks);
     } catch(err) {
-        console.log(err);
+        next(err);
     } finally {
         await con.close();
     }
@@ -188,13 +215,11 @@ router.post('/login', async (req, res) => {
  * @response {HTTP Code} 406 if the user tries to sell a share they do not own.
  * @response {HTTP Code} 202 if the investment was purchased/sold successfully.
  */
-router.post('/investments', authenticateToken, async (req, res) => {
+router.post('/investments', authenticateToken, async (req, res, next) => {
     const email = req.user;
     const investment = req.body.investment;
     const ticker = investment.ticker;
     const numShares = parseInt(investment.numShares);
-
-    // connect to the database
     const con = getDatabaseConnection();
 
     try{
@@ -224,7 +249,7 @@ router.post('/investments', authenticateToken, async (req, res) => {
             }
         }
     } catch(err) {
-        console.log(err);
+        next(err);
     } finally {
         await con.close();
     }
@@ -235,62 +260,18 @@ router.post('/investments', authenticateToken, async (req, res) => {
  * value of investments held by the user over time
  * @response {JSON} a json object containing a list of worths.
  */
- router.get('/worths', authenticateToken, async (req, res) => {
-    // connect to the database
+ router.get('/worths', authenticateToken, async (req, res, next) => {
     const con = getDatabaseConnection();
 
     try {
         const worths = await con.query('SELECT date, amount FROM worth WHERE email=?', [req.user]);
         res.json(worths);
     } catch(err) {
-        console.log(err);
+        next(err);
     } finally {
         await con.close();
     }
 });
-
-
-// function called upon every request for user data to
-// ensure that the user is authenticated with the server.
-function authenticateToken(req, res, next){
-    // get the token and return if undefined.
-    const token = req.headers['authorization'] && req.headers['authorization'].split(' ')[1];
-    if(!token) return res.status(401).send('No JWT provided.');
-
-    // check if the token is valid and add the user to the request of the calling function.
-    jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, user) => {
-        if(err) return res.status(401).send('JWT is not valid.');
-        req.user = user;
-        next();
-    });
-}
-
-
-// every minute, update the user-worth table
-setInterval(async () => {
-    console.log('Updating worths...');
-    // connect to the database
-    const con = getDatabaseConnection();
-
-    try {
-        const emails = await con.query('SELECT email FROM user WHERE verified=1');
-        for(var email of emails){
-            const investments = await con.query('SELECT ticker, numShares FROM investment WHERE email=?', [email.email]);
-            var worth = 0;
-            for(var investment of investments){
-                var stock = new Stock(investment.ticker);
-                await stock.init();
-                worth += stock.sharePrice * investment.numShares;
-            }
-            await con.query('INSERT INTO worth VALUES (?, ?, ?)', [email.email, new Date(), worth.toFixed(2)]);
-        }
-    } catch(err) {
-        console.log(err);
-    } finally {
-        await con.close();
-    }
-}, 15000);
-
 
 module.exports = {
     router: router,

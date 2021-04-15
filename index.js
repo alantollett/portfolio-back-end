@@ -1,32 +1,58 @@
 require('dotenv').config();
 const fs = require('fs');
-
-// setup the express app 
+const path = require('path');
 const express = require('express');
+const cors = require('cors');
+const helmet = require('helmet');
+const https = require('https');
+const http = require('http');
+
+const userManager = require('./Routes/user');
+const dataRoute = require('./Routes/data');
+
+// setup express app and add middleware for 
 const app = express();
 app.use(express.json());
-
-// dependency for allowing cross-origin requests 
-const cors = require('cors');
 app.use(cors());
+app.use(helmet());
 
-// set up express to serve the react app
-const path = require('path');
+// serve the react app at the default route
 app.use(express.static(path.join(__dirname, 'build')));
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'build', 'index.html'));
+app.get('/', (req, res, next) => {
+    const reactApp = path.join(__dirname, 'build', 'index.html');
+    res.sendFile(reactApp);
 });
 
-// import routes
-const userManager = require('./Routes/userRoute');
-app.use('/user', userManager.router);
+// serve the error page at /error
+app.get('/error', (req, res) => {
+    res.sendFile(path.join(__dirname, 'error.html'));
+});
 
-const dataRoute = require('./Routes/dataRoute');
+// import other (api) routes
+app.use('/user', userManager.router);
 app.use('/data', dataRoute);
 
-// set up express to use https (if they key and certificate exists)
+// add custom error handling middleware at the end of the req loop
+app.use((err, req, res, next) => {
+    // if a response started to send and then an error occurs,
+    // then just pass on to the default err handler to close connection.
+    if(res.headersSent) return next(err);
+    console.error(err);
+
+    // output the error to a log file
+    var errorStream = fs.createWriteStream('./errors.txt', {flags: 'a'});
+    const d = new Date();
+    errorStream.write(
+        `${new Date()} ${req.ip} ${req.method} ${req.protocol}://${req.get('host') + req.originalUrl}.
+        ${err.stack}\n\n`
+    );
+    
+    // redirect the user to a html error page
+    res.redirect('/error');
+});
+
+// finally set up express to use https (if they key and certificate exists)
 if(fs.existsSync('key.key') && fs.existsSync('certificate.cer')){
-    const https = require('https');
     const credentials = {
         key: fs.readFileSync('key.key'),
         cert: fs.readFileSync('certificate.cer')
@@ -40,5 +66,4 @@ if(fs.existsSync('key.key') && fs.existsSync('certificate.cer')){
 }
 
 // also allow for http connections
-const http = require('http');
 http.createServer(app).listen(80, () => console.log(`HTTP Server started on port 80.`));

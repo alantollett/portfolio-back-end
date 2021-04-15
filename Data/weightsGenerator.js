@@ -8,6 +8,7 @@ const path = require('path');
  * @return {Array} a list of weights based upon the n and the stepSize.
  */
 function getWeights(n, stepSize){
+    var recursiveCalls = [];
     var weights = [];
 
     // start with 100% of the first asset
@@ -16,7 +17,7 @@ function getWeights(n, stepSize){
     weights.push(currWeights);
 
     // call recursive helper function with a copy of the starting weights
-    weightsAux(weights, currWeights.slice(), stepSize);
+    weightsAux(weights, currWeights.slice(), stepSize, recursiveCalls);
     
     // remove duplicates and return.
     var set = new Set(weights.map(JSON.stringify));

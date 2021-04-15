@@ -1,0 +1,27 @@
+Thu Apr 15 2021 17:17:03 GMT+0100 (British Summer Time) ::1 GET http://localhost/.
+        Error: ENOENT: no such file or directory, stat 'C:\Users\alant\OneDrive\Desktop\portfolio-back-end\build\index.html'
+
+Thu Apr 15 2021 17:17:48 GMT+0100 (British Summer Time) ::1 GET http://localhost/.
+        Error: ENOENT: no such file or directory, stat 'C:\Users\alant\OneDrive\Desktop\portfolio-back-end\build\index.html'
+
+Thu Apr 15 2021 17:17:56 GMT+0100 (British Summer Time) ::1 GET http://localhost/.
+        Error: ENOENT: no such file or directory, stat 'C:\Users\alant\OneDrive\Desktop\portfolio-back-end\build\index.html'
+
+Thu Apr 15 2021 17:17:57 GMT+0100 (British Summer Time) ::1 GET http://localhost/.
+        Error: ENOENT: no such file or directory, stat 'C:\Users\alant\OneDrive\Desktop\portfolio-back-end\build\index.html'
+
+Thu Apr 15 2021 17:17:58 GMT+0100 (British Summer Time) ::1 GET http://localhost/.
+        Error: ENOENT: no such file or directory, stat 'C:\Users\alant\OneDrive\Desktop\portfolio-back-end\build\index.html'
+
+Thu Apr 15 2021 17:17:58 GMT+0100 (British Summer Time) ::1 GET http://localhost/.
+        Error: ENOENT: no such file or directory, stat 'C:\Users\alant\OneDrive\Desktop\portfolio-back-end\build\index.html'
+
+Thu Apr 15 2021 17:21:11 GMT+0100 (British Summer Time) ::1 GET http://localhost/.
+        Error: ENOENT: no such file or directory, stat 'C:\Users\alant\OneDrive\Desktop\portfolio-back-end\build\index.html'
+
+Thu Apr 15 2021 17:21:15 GMT+0100 (British Summer Time) ::1 GET http://localhost/.
+        Error: ENOENT: no such file or directory, stat 'C:\Users\alant\OneDrive\Desktop\portfolio-back-end\build\index.html'
+
+Thu Apr 15 2021 19:31:15 GMT+0100 (British Summer Time) ::1 GET http://localhost/.
+        Error: ENOENT: no such file or directory, stat 'C:\Users\alant\OneDrive\Desktop\portfolio-back-end\build\index.html'
+
