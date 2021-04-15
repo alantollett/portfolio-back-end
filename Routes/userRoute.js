@@ -68,7 +68,7 @@ router.post('/register', async (req, res) => {
             html: `
                 <h1>Welcome to Portfolio Optimiser</h1>
                 <p>Please verify your account by clicking the following link:</p>
-                http://localhost:80/user/verify/${id}`
+                ${process.env.API_PATH}/user/verify/${id}`
         };
         await transporter.sendMail(mailOptions);
 
