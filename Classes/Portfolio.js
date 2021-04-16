@@ -15,10 +15,18 @@ loadValues = async (portfolio) => {
     portfolio.expectedReturn = 0;
     portfolio.expectedDividendYield = 0;
     portfolio.standardDeviation = 0;
+    portfolio.priceToBook = 0;
 
     for(var i = 0; i < stocks.length; i++){
         portfolio.expectedReturn += portfolio.weights[i] * stocks[i].expectedReturn;
         portfolio.expectedDividendYield += portfolio.weights[i] * stocks[i].expectedDividendYield;
+
+        if(stocks[i].priceToBook){
+            portfolio.priceToBook += portfolio.weights[i] * stocks[i].priceToBook;
+        }else {
+            const sp500MeanPriceToBook = 2.87;
+            portfolio.priceToBook += portfolio.weights[i] * sp500MeanPriceToBook;
+        }
 
         for(var j = 0; j < stocks.length; j++){
             var cov = await covariance(stocks[i], stocks[j]);

@@ -20,7 +20,7 @@ var Stock = class Stock {
         const quote = await yahooFinance.quote({symbol: this.ticker});
         this.sharePrice = Number(quote.price.regularMarketPrice).toFixed(2);
         this.name = quote.price.longName;
-        this.priceToBook = quote.defaultKeyStatistics ? quote.defaultKeyStatistics.priceToBook : 999;
+        this.priceToBook = quote.defaultKeyStatistics ? quote.defaultKeyStatistics.priceToBook : null;
         const divYield = quote.summaryDetail.fiveYearAvgDividendYield;
         this.expectedDividendYield = divYield ? divYield : 0;
     }
