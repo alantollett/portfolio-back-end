@@ -25,3 +25,6 @@ Thu Apr 15 2021 17:21:15 GMT+0100 (British Summer Time) ::1 GET http://localhost
 Thu Apr 15 2021 19:31:15 GMT+0100 (British Summer Time) ::1 GET http://localhost/.
         Error: ENOENT: no such file or directory, stat 'C:\Users\alant\OneDrive\Desktop\portfolio-back-end\build\index.html'
 
+Thu Apr 15 2021 21:36:09 GMT+0100 (British Summer Time) ::1 GET http://localhost/.
+        Error: ENOENT: no such file or directory, stat 'C:\Users\alant\OneDrive\Desktop\portfolio-back-end\build\index.html'
+
