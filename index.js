@@ -14,7 +14,7 @@ const dataRoute = require('./Routes/data');
 const app = express();
 app.use(express.json());
 app.use(cors());
-app.use(helmet())
+app.use(helmet({contentSecurityPolicy: false})); // csp false due to plotly bug (plotly.js issue#897)
 
 // serve the react app at the default route
 app.use(express.static(path.join(__dirname, 'build')));
