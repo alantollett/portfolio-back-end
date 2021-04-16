@@ -14,11 +14,11 @@ const dataRoute = require('./Routes/data');
 const app = express();
 app.use(express.json());
 app.use(cors());
-app.use(helmet());
+app.use(helmet())
 
 // serve the react app at the default route
 app.use(express.static(path.join(__dirname, 'build')));
-app.get('/', (req, res, next) => {
+app.get('/', (req, res) => {
     const reactApp = path.join(__dirname, 'build', 'index.html');
     res.sendFile(reactApp);
 });
